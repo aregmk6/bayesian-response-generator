@@ -60,7 +60,7 @@ TokenArr init_vocab(const char* str)
     return tarr;
 }
 
-void tokenize(TokenArr* tarr)
+void process(TokenArr* tarr)
 {
     while (vocab_end < VOCAB_SIZE) {
         size_t max_count   = 0;
@@ -137,12 +137,15 @@ void free_vocab()
 
 int main(int argc, char* argv[])
 {
-    char* path = NULL;
-    if (argc < 2) {
-        fprintf(stderr, "usage: main <path>\n");
-        return 1;
-    }
-    path = argv[1];
+    // char* path = NULL;
+    // if (argc < 2) {
+    //     fprintf(stderr, "usage: main <path>\n");
+    //     return 1;
+    // }
+    // path = argv[1];
+
+    const char* path = "/home/aregmk/Coding/twopairencoding/data/clean/"
+                       "cleaned_data_output.txt";
 
     struct stat st;
     if (stat(path, &st) != 0) {
@@ -162,7 +165,7 @@ int main(int argc, char* argv[])
     char* data = mmap(NULL, file_size, PROT_READ, MAP_SHARED, fd, 0);
 
     TokenArr tarr = init_vocab(data);
-    tokenize(&tarr);
+    process(&tarr);
 
     printf("Tokenized String:\n");
     da_foreach(size_t, token, &tarr)
@@ -177,8 +180,14 @@ int main(int argc, char* argv[])
     }
 
     munmap(data, file_size);
-    free_vocab();
 
+    // create state matrix
+    size_t** matrix = malloc(sizeof(size_t*) * vocab_end);
+    for (int i = 0; i < vocab_end; ++i) {
+        matrix[i] = malloc(sizeof(size_t) * vocab_end);
+    }
+
+    free_vocab();
     da_free(tarr);
 
     return 0;
