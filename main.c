@@ -1,3 +1,5 @@
+#include <bits/posix2_lim.h>
+#include <fcntl.h>
 #define NOB_IMPLEMENTATION
 #include "vendor/nob.h"
 
@@ -5,8 +7,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+
+#define ttp(x) 1 << x
 
 #define VOCAB_SIZE 10000
+#define BUFF_SIZE ttp(12)
 
 static char* vocabulary[VOCAB_SIZE] = {0};
 static size_t vocab_end             = 0;
@@ -15,7 +21,7 @@ typedef struct {
     size_t* items;
     size_t capacity;
     size_t count;
-} TArr;
+} TokenArr;
 
 int64_t exists(const char* token)
 {
@@ -28,9 +34,9 @@ int64_t exists(const char* token)
     return -1;
 }
 
-TArr init_vocab(const char* str)
+TokenArr init_vocab(const char* str)
 {
-    TArr tarr = {0};
+    TokenArr tarr = {0};
 
     for (int i = 0; i < strlen(str); ++i) {
         char cur_token[2] = {0};
@@ -54,7 +60,7 @@ TArr init_vocab(const char* str)
     return tarr;
 }
 
-void tokenize(TArr* tarr)
+void tokenize(TokenArr* tarr)
 {
     while (vocab_end < VOCAB_SIZE) {
         size_t max_count   = 0;
@@ -103,7 +109,7 @@ void tokenize(TArr* tarr)
             vocab_end += 1;
         }
 
-        TArr new_tarr = {0};
+        TokenArr new_tarr = {0};
 
         for (int i = 0; i < tarr->count;) {
             size_t cur_pair[2] = {tarr->items[i], tarr->items[i + 1]};
@@ -122,14 +128,40 @@ void tokenize(TArr* tarr)
     }
 }
 
+void free_vocab()
+{
+    for (int i = 0; i < vocab_end; ++i) {
+        free(vocabulary[i]);
+    }
+}
+
 int main(int argc, char* argv[])
 {
-    char* str = NULL;
-    if (argc >= 2) {
-        str = argv[1];
+    char* path = NULL;
+    if (argc < 2) {
+        fprintf(stderr, "usage: main <path>\n");
+        return 1;
+    }
+    path = argv[1];
+
+    struct stat st;
+    if (stat(path, &st) != 0) {
+        fprintf(stderr, "stat: couldn't open file\n");
+        return 1;
     }
 
-    TArr tarr = init_vocab(str);
+    size_t file_size = st.st_size;
+    printf("file size: %zu\n", file_size);
+
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        fprintf(stderr, "open: couldn't open file\n");
+        return 1;
+    }
+
+    char* data = mmap(NULL, file_size, PROT_READ, MAP_SHARED, fd, 0);
+
+    TokenArr tarr = init_vocab(data);
     tokenize(&tarr);
 
     printf("Tokenized String:\n");
@@ -143,6 +175,11 @@ int main(int argc, char* argv[])
     for (size_t i = 0; i < vocab_end; ++i) {
         printf("%zu: %s\n", i, vocabulary[i]);
     }
+
+    munmap(data, file_size);
+    free_vocab();
+
+    da_free(tarr);
 
     return 0;
 }
