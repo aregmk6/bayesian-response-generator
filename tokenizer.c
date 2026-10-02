@@ -1,5 +1,5 @@
-#include <bits/posix2_lim.h>
-#include <fcntl.h>
+#include "vendor/hashmap.h"
+
 #define NOB_IMPLEMENTATION
 #include "vendor/nob.h"
 
@@ -17,40 +17,69 @@
 static char* vocabulary[VOCAB_SIZE] = {0};
 static size_t vocab_end             = 0;
 
+typedef struct hashmap hashmap;
+
+typedef struct {
+    char* tok;
+    int index;
+} Token;
+
 typedef struct {
     size_t* items;
     size_t capacity;
     size_t count;
 } TokenArr;
 
-int64_t exists(const char* token)
+int tok_compare(const void* a, const void* b, void* udata)
 {
-    for (int i = 0; i < vocab_end; ++i) {
-        if (strcmp(token, vocabulary[i]) == 0) {
-            return i;
-        }
+    const Token* ua = a;
+    const Token* ub = b;
+    return strcmp(ua->tok, ub->tok);
+}
+
+bool tok_iter(const void* item, void* udata)
+{
+    const Token* user = item;
+    printf("%s (age=%d)\n", user->tok, user->index);
+    return true;
+}
+
+uint64_t tok_hash(const void* item, uint64_t seed0, uint64_t seed1)
+{
+    const Token* user = item;
+    return hashmap_sip(user->tok, strlen(user->tok), seed0, seed1);
+}
+
+int64_t exists(const hashmap* map, const char* token)
+{
+    const Token* tok = hashmap_get(map, &(Token){.tok = token});
+    if (tok) {
+        return tok->index;
     }
 
     return -1;
 }
 
-TokenArr init_vocab(const char* str)
+TokenArr init_vocab(const char* str, hashmap* map)
 {
+
     TokenArr tarr = {0};
 
     for (int i = 0; i < strlen(str); ++i) {
         char cur_token[2] = {0};
         cur_token[0]      = *(str + i);
 
-        int64_t index = exists(cur_token);
-        if (index != -1) {
+        int64_t index = exists(map, cur_token);
+        if (index != -1) { // exists
             da_append(&tarr, index);
 
             continue;
         }
 
+        // doesn't exist
         char* new_token = malloc(sizeof(char) * 2);
         memcpy(new_token, cur_token, 2);
+        hashmap_set(map, &(Token){.tok = cur_token, .index = vocab_end});
 
         vocabulary[vocab_end] = new_token;
         da_append(&tarr, vocab_end);
@@ -60,7 +89,7 @@ TokenArr init_vocab(const char* str)
     return tarr;
 }
 
-void process(TokenArr* tarr)
+void process(TokenArr* tarr, const hashmap* map)
 {
     while (vocab_end < VOCAB_SIZE) {
         size_t max_count   = 0;
@@ -100,7 +129,7 @@ void process(TokenArr* tarr)
         memcpy(max_token_str + first_str_size, second_str, second_str_size);
         max_token_str[max_token_str_size - 1] = 0;
 
-        int64_t index = exists(max_token_str);
+        int64_t index = exists(map, max_token_str);
         if (index != -1) { // exists
             free(max_token_str);
         } else { // doens't exist
@@ -164,8 +193,11 @@ int main(int argc, char* argv[])
 
     char* data = mmap(NULL, file_size, PROT_READ, MAP_SHARED, fd, 0);
 
-    TokenArr tarr = init_vocab(data);
-    process(&tarr);
+    hashmap* map =
+        hashmap_new(sizeof(Token), 0, 0, 0, tok_hash, tok_compare, NULL, NULL);
+
+    TokenArr tarr = init_vocab(data, map);
+    process(&tarr, map);
 
     printf("Tokenized String:\n");
     da_foreach(size_t, token, &tarr)
