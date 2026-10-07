@@ -145,7 +145,6 @@ void process_data(TokenizedStr& tstr, FreqMap& pfm, FreqPairPriQueue& fppq)
         vocab[vocab_end] =
             vocab[most_freq_pair.first] + vocab[most_freq_pair.second];
 
-        // for (auto& loc : mfq_locations) {
         for (auto loc_it = mfq_locations.begin(); loc_it != mfq_locations.end();
              ++loc_it) {
             auto& loc = *loc_it;
@@ -164,8 +163,7 @@ void process_data(TokenizedStr& tstr, FreqMap& pfm, FreqPairPriQueue& fppq)
 
             if (loc != tstr.begin()) {
                 Pair pair_to_update = {std::prev(loc)->token, loc->token};
-                // if (pair_to_update != most_freq_pair) {
-                auto map_it = pfm.find(pair_to_update);
+                auto map_it         = pfm.find(pair_to_update);
                 assert(map_it != pfm.end());
 
                 auto queue_it =
@@ -181,7 +179,6 @@ void process_data(TokenizedStr& tstr, FreqMap& pfm, FreqPairPriQueue& fppq)
                     pfm[pair_to_update].location.erase(
                         std::prev(loc)->location_reverse);
                 }
-                // }
             }
 
             if (std::next(loc) != tstr.end() &&
@@ -328,6 +325,23 @@ int main(int argc, char* argv[])
 #ifndef DEBUG
     munmap(data, file_size);
 #endif
+
+    std::vector<std::vector<size_t>> token_matrix{vocab_end};
+    for (int i = 0; i < vocab_end; ++i) {
+        token_matrix[i].resize(vocab_end, 0);
+    }
+
+    for (auto it = tstr.begin(); it != std::prev(tstr.end()); ++it) {
+        token_matrix[it->token][std::next(it)->token] += 1;
+    }
+
+    for (int i = 0; i < token_matrix.size(); ++i) {
+        fmt::print("{} = [ ", i);
+        for (size_t count : token_matrix[i]) {
+            fmt::print("{} ", count);
+        }
+        fmt::print("]\n");
+    }
 
     return 0;
 }
