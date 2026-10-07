@@ -1,5 +1,7 @@
 data/
 .gdb_history
 .gdbinit
+model
 main
 cleaner
+trained_data.bin

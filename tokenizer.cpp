@@ -2,6 +2,7 @@
 #include <cassert>
 #include <fcntl.h>
 #include <fmt/format.h>
+#include <fstream>
 #include <iterator>
 #include <list>
 #include <set>
@@ -296,6 +297,14 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    std::ofstream trained_data_file{
+        "/home/aregmk/Coding/twopairencoding/trained_data.bin",
+        std::ios::binary};
+    if (!trained_data_file.is_open()) {
+        fmt::print("Opening file failed\n");
+        exit(1);
+    }
+
     char* data = (char*)mmap(NULL, file_size, PROT_READ, MAP_SHARED, fd, 0);
 #endif
 
@@ -310,6 +319,10 @@ int main(int argc, char* argv[])
 
     process_data(tstr, tfm, fppq);
 
+#ifndef DEBUG
+    munmap(data, file_size);
+#endif
+
     fmt::print("Compressed String:\n");
     for (Node n : tstr) {
         fmt::print("{} ", n.token);
@@ -322,10 +335,6 @@ int main(int argc, char* argv[])
         fmt::print("Token {}: {}\n", i, vocab[i]);
     }
 
-#ifndef DEBUG
-    munmap(data, file_size);
-#endif
-
     std::vector<std::vector<size_t>> token_matrix{vocab_end};
     for (int i = 0; i < vocab_end; ++i) {
         token_matrix[i].resize(vocab_end, 0);
@@ -335,13 +344,22 @@ int main(int argc, char* argv[])
         token_matrix[it->token][std::next(it)->token] += 1;
     }
 
+    trained_data_file.write(reinterpret_cast<char*>(&vocab_end),
+                            sizeof(vocab_end));
     for (int i = 0; i < token_matrix.size(); ++i) {
-        fmt::print("{} = [ ", i);
         for (size_t count : token_matrix[i]) {
-            fmt::print("{} ", count);
+            trained_data_file.write(reinterpret_cast<char*>(&count),
+                                    sizeof(count));
         }
-        fmt::print("]\n");
     }
+
+    // for (int i = 0; i < token_matrix.size(); ++i) {
+    //     fmt::print("{} = [ ", i);
+    //     for (size_t count : token_matrix[i]) {
+    //         fmt::print("{} ", count);
+    //     }
+    //     fmt::print("]\n");
+    // }
 
     return 0;
 }
