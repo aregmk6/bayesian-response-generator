@@ -23,7 +23,7 @@ constexpr size_t ttp(size_t x)
     return 1 << x;
 }
 
-constexpr size_t VOCAB_SIZE = 10000;
+constexpr size_t VOCAB_SIZE = 30000;
 constexpr size_t BUFF_SIZE  = ttp(12);
 
 struct Node {
@@ -279,8 +279,8 @@ int main(int argc, char* argv[])
     //     return 1;
     // }
     // path = argv[1];
-    const char* path = "/home/aregmk/Coding/twopairencoding/data/clean/"
-                       "cleaned_data_output.txt";
+    const char* path = "/home/aregmk/Coding/bytepairencoding/data/clean/"
+                       "english_data.txt";
 
     struct stat st;
     if (stat(path, &st) != 0) {
@@ -298,7 +298,7 @@ int main(int argc, char* argv[])
     }
 
     std::ofstream trained_data_file{
-        "/home/aregmk/Coding/twopairencoding/trained_data.bin",
+        "/home/aregmk/Coding/bytepairencoding/trained_data.bin",
         std::ios::binary};
     if (!trained_data_file.is_open()) {
         fmt::print("Opening file failed\n");
@@ -346,11 +346,22 @@ int main(int argc, char* argv[])
 
     trained_data_file.write(reinterpret_cast<char*>(&vocab_end),
                             sizeof(vocab_end));
-    for (int i = 0; i < token_matrix.size(); ++i) {
+
+    for (size_t i = 0; i < token_matrix.size(); ++i) {
         for (size_t count : token_matrix[i]) {
             trained_data_file.write(reinterpret_cast<char*>(&count),
                                     sizeof(count));
         }
+    }
+
+    size_t cur_str_size = 0;
+    for (size_t i = 0; i < vocab.size(); ++i) {
+        cur_str_size = vocab[i].size();
+        trained_data_file.write(reinterpret_cast<char*>(&cur_str_size),
+                                sizeof(cur_str_size));
+
+        trained_data_file.write(reinterpret_cast<char*>(vocab[i].data()),
+                                cur_str_size);
     }
 
     // for (int i = 0; i < token_matrix.size(); ++i) {
